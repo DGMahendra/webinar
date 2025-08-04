@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, Clock, Users, Search, Filter, Eye, Lock } from 'lucide-react'
-import { format, isFuture, isPast } from 'date-fns'
+import { format, isFuture, isPast, isAfter } from 'date-fns'
 import { supabase, Webinar } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -60,7 +60,34 @@ export function ExplorePage() {
   }
 
   const canAccessWebinar = (webinar: Webinar) => {
-    return webinar.access_type === 'public' || user
+    if (!user) {
+      return webinar.access_type === 'public'
+    }
+    
+    // Contributors can access all webinars
+    if (user && profile?.role === 'contributor') {
+      return true
+    }
+    
+    // For regular users, check access type and user type
+    if (webinar.access_type === 'public') {
+      return true
+    }
+    
+    // For paid-only webinars, check if user has paid access
+    return profile?.user_type === 'paid'
+  }
+
+  const canPlayVideo = (webinar: Webinar) => {
+    const isUpcoming = isFuture(new Date(webinar.scheduled_date))
+    
+    // Contributors can always play videos
+    if (profile?.role === 'contributor') {
+      return true
+    }
+    
+    // For regular users, only allow video playback if webinar is not upcoming
+    return !isUpcoming
   }
 
   if (loading) {
@@ -118,6 +145,7 @@ export function ExplorePage() {
             {filteredWebinars.map((webinar) => {
               const isUpcoming = isFuture(new Date(webinar.scheduled_date))
               const hasAccess = canAccessWebinar(webinar)
+              const canPlay = canPlayVideo(webinar)
               
               return (
                 <div
@@ -148,6 +176,11 @@ export function ExplorePage() {
                       }`}>
                         {isUpcoming ? 'Upcoming' : 'Past'}
                       </span>
+                      {isUpcoming && profile?.role !== 'contributor' && (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                          Video Disabled
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -172,7 +205,7 @@ export function ExplorePage() {
                       className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
                     >
                       <Eye className="h-4 w-4" />
-                      <span>View Webinar</span>
+                      <span>{canPlay ? 'View Webinar' : 'View Details'}</span>
                     </Link>
                   ) : (
                     <div className="w-full bg-gray-100 text-gray-600 px-4 py-2 rounded-lg flex items-center justify-center space-x-2 cursor-not-allowed">

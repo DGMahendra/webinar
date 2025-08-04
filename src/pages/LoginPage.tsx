@@ -14,7 +14,6 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const message = location.state?.message
 
   useEffect(() => {
     if (profile) {
@@ -54,12 +53,6 @@ export function LoginPage() {
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {message && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-                {message}
-              </div>
-            )}
-            
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
                 {error}

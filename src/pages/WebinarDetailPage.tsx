@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Calendar, Clock, Users, ArrowLeft, Lock, Globe } from 'lucide-react'
-import { format } from 'date-fns'
+import { format, isFuture } from 'date-fns'
 import { supabase, Webinar } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -36,7 +36,37 @@ export function WebinarDetailPage() {
 
   const canAccessWebinar = () => {
     if (!webinar) return false
-    return webinar.access_type === 'public' || user
+    
+    if (!user) {
+      return webinar.access_type === 'public'
+    }
+    
+    // Contributors can access all webinars
+    if (user && profile?.role === 'contributor') {
+      return true
+    }
+    
+    // For regular users, check access type and user type
+    if (webinar.access_type === 'public') {
+      return true
+    }
+    
+    // For paid-only webinars, check if user has paid access
+    return profile?.user_type === 'paid'
+  }
+
+  const canPlayVideo = () => {
+    if (!webinar) return false
+    
+    const isUpcoming = isFuture(new Date(webinar.scheduled_date))
+    
+    // Contributors can always play videos
+    if (profile?.role === 'contributor') {
+      return true
+    }
+    
+    // For regular users, only allow video playback if webinar is not upcoming
+    return !isUpcoming
   }
 
   const getEmbedUrl = (url: string) => {
@@ -79,6 +109,8 @@ export function WebinarDetailPage() {
   }
 
   const hasAccess = canAccessWebinar()
+  const canPlay = canPlayVideo()
+  const isUpcoming = isFuture(new Date(webinar.scheduled_date))
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,23 +130,30 @@ export function WebinarDetailPage() {
           <div className="p-8 border-b border-gray-200">
             <div className="flex justify-between items-start mb-4">
               <h1 className="text-3xl font-bold text-gray-900">{webinar.title}</h1>
-              <span className={`px-3 py-1 text-sm font-medium rounded-full ${
-                webinar.access_type === 'public' 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-orange-100 text-orange-800'
-              }`}>
-                {webinar.access_type === 'public' ? (
-                  <>
-                    <Globe className="h-4 w-4 inline mr-1" />
-                    Public
-                  </>
-                ) : (
-                  <>
-                    <Lock className="h-4 w-4 inline mr-1" />
-                    Paid Only
-                  </>
+              <div className="flex flex-col space-y-2">
+                <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                  webinar.access_type === 'public' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-orange-100 text-orange-800'
+                }`}>
+                  {webinar.access_type === 'public' ? (
+                    <>
+                      <Globe className="h-4 w-4 inline mr-1" />
+                      Public
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4 inline mr-1" />
+                      Paid Only
+                    </>
+                  )}
+                </span>
+                {isUpcoming && (
+                  <span className="px-3 py-1 text-sm font-medium rounded-full bg-blue-100 text-blue-800">
+                    Upcoming
+                  </span>
                 )}
-              </span>
+              </div>
             </div>
 
             <div className="grid md:grid-cols-3 gap-6 mb-6">
@@ -155,7 +194,7 @@ export function WebinarDetailPage() {
           <div className="p-8">
             {hasAccess ? (
               <>
-                {webinar.embed_url ? (
+                {webinar.embed_url && canPlay ? (
                   <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
                     <iframe
                       src={getEmbedUrl(webinar.embed_url)}
@@ -165,6 +204,15 @@ export function WebinarDetailPage() {
                       allowFullScreen
                       title={webinar.title}
                     />
+                  </div>
+                ) : webinar.embed_url && !canPlay ? (
+                  <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                    <div className="text-center text-gray-500">
+                      <Calendar className="h-16 w-16 mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">Webinar Coming Soon</h3>
+                      <p className="text-lg mb-2">This webinar is scheduled for the future</p>
+                      <p className="text-sm">Video will be available on {format(new Date(webinar.scheduled_date), 'MMMM d, yyyy \'at\' h:mm a')}</p>
+                    </div>
                   </div>
                 ) : (
                   <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">

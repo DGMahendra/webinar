@@ -1,7 +1,41 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, User, UserCheck } from 'lucide-react'
+import { Eye, EyeOff, User, UserCheck, Check } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+
+interface SuccessModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onGoToLogin: () => void
+}
+
+function SuccessModal({ isOpen, onClose, onGoToLogin }: SuccessModalProps) {
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+        <div className="text-center">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+            <Check className="h-6 w-6 text-green-600" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Account Created Successfully!
+          </h3>
+          <p className="text-sm text-gray-500 mb-6">
+            Please log in to continue and access your account.
+          </p>
+          <button
+            onClick={onGoToLogin}
+            className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function SignUpPage() {
   const [formData, setFormData] = useState({
@@ -9,11 +43,13 @@ export function SignUpPage() {
     lastName: '',
     email: '',
     password: '',
-    role: 'user' as 'contributor' | 'user'
+    role: 'user' as 'contributor' | 'user',
+    userType: 'public' as 'public' | 'paid'
   })
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
   
   const { signUp } = useAuth()
   const navigate = useNavigate()
@@ -24,10 +60,8 @@ export function SignUpPage() {
     setError('')
 
     try {
-      await signUp(formData.email, formData.password, formData.firstName, formData.lastName, formData.role)
-      navigate('/login', { 
-        state: { message: 'Account created successfully! Please log in.' }
-      })
+      await signUp(formData.email, formData.password, formData.firstName, formData.lastName, formData.role, formData.userType)
+      setShowSuccessModal(true)
     } catch (error: any) {
       setError(error.message || 'Failed to create account')
     } finally {
@@ -35,8 +69,19 @@ export function SignUpPage() {
     }
   }
 
+  const handleGoToLogin = () => {
+    setShowSuccessModal(false)
+    navigate('/login')
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <>
+      <SuccessModal 
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        onGoToLogin={handleGoToLogin}
+      />
+      <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
           Create your account
@@ -162,6 +207,39 @@ export function SignUpPage() {
               </div>
             </div>
 
+            {formData.role === 'user' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Choose your plan
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, userType: 'public' })}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      formData.userType === 'public'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-sm font-medium">Free Plan</div>
+                    <div className="text-xs text-gray-500 mt-1">Access to public webinars</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, userType: 'paid' })}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      formData.userType === 'paid'
+                        ? 'border-orange-500 bg-orange-50 text-orange-700'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="text-sm font-medium">Premium Plan</div>
+                    <div className="text-xs text-gray-500 mt-1">Access to all webinars</div>
+                  </button>
+                </div>
+              </div>
+            )}
             <button
               type="submit"
               disabled={loading}
@@ -173,5 +251,6 @@ export function SignUpPage() {
         </div>
       </div>
     </div>
+    </>
   )
 }
